@@ -11,7 +11,8 @@ from typing import List, Optional
 from . import (AbortDownloadException, BadCredentialsException, Instaloader, InstaloaderException,
                InvalidArgumentException, Post, Profile, ProfileNotExistsException, StoryItem,
                TwoFactorAuthRequiredException, __version__, load_structure_from_file)
-from .instaloader import (get_default_session_filename, get_default_stamps_filename)
+from .instaloader import (get_default_session_filename,
+                          get_default_stamps_filename)
 from .instaloadercontext import default_user_agent
 from .lateststamps import LatestStamps
 
@@ -32,7 +33,8 @@ def http_status_code_list(code_list_str: str) -> List[int]:
     codes = [int(s) for s in code_list_str.split(',')]
     for code in codes:
         if not 100 <= code <= 599:
-            raise ArgumentTypeError("Invalid HTTP status code: {}".format(code))
+            raise ArgumentTypeError(
+                "Invalid HTTP status code: {}".format(code))
     return codes
 
 
@@ -46,7 +48,8 @@ def filterstr_to_filterfunc(filter_str: str, item_type: type):
     class TransformFilterAst(ast.NodeTransformer):
         def visit_Name(self, node: ast.Name):
             if not isinstance(node.ctx, ast.Load):
-                raise InvalidArgumentException("Invalid filter: Modifying variables ({}) not allowed.".format(node.id))
+                raise InvalidArgumentException(
+                    "Invalid filter: Modifying variables ({}) not allowed.".format(node.id))
             if node.id == "datetime":
                 return node
             if not hasattr(item_type, node.id):
@@ -84,29 +87,40 @@ def _main(instaloader: Instaloader, targetlist: List[str],
     post_filter = None
     if post_filter_str is not None:
         post_filter = filterstr_to_filterfunc(post_filter_str, Post)
-        instaloader.context.log('Only download posts with property "{}".'.format(post_filter_str))
+        instaloader.context.log(
+            'Only download posts with property "{}".'.format(post_filter_str))
     storyitem_filter = None
     if storyitem_filter_str is not None:
-        storyitem_filter = filterstr_to_filterfunc(storyitem_filter_str, StoryItem)
-        instaloader.context.log('Only download storyitems with property "{}".'.format(storyitem_filter_str))
+        storyitem_filter = filterstr_to_filterfunc(
+            storyitem_filter_str, StoryItem)
+        instaloader.context.log(
+            'Only download storyitems with property "{}".'.format(storyitem_filter_str))
     latest_stamps = None
     if latest_stamps_file is not None:
         latest_stamps = LatestStamps(latest_stamps_file)
-        instaloader.context.log(f"Using latest stamps from {latest_stamps_file}.")
+        instaloader.context.log(
+            f"Using latest stamps from {latest_stamps_file}.")
     # Login, if desired
     if username is not None:
         if not re.match(r"^[A-Za-z0-9._]+$", username):
-            instaloader.context.error("Warning: Parameter \"{}\" for --login is not a valid username.".format(username))
+            instaloader.context.error(
+                "Warning: Parameter \"{}\" for --login is not a valid username.".format(username))
         try:
             instaloader.load_session_from_file(username, sessionfile)
         except FileNotFoundError as err:
             if sessionfile is not None:
                 print(err, file=sys.stderr)
-            instaloader.context.log("Session file does not exist yet - Logging in.")
+            instaloader.context.log(
+                "Session file does not exist yet - Logging in.")
         if not instaloader.context.is_logged_in or username != instaloader.test_login():
             if password is not None:
                 try:
-                    instaloader.login(username, password)
+                    # PROXIESSTUFF
+                    proxies = {
+                        'http': os.environ.get('HTTP_PROXY_SERVER'),
+                        'https': os.environ.get('HTTPS_PROXY_SERVER'),
+                    }
+                    instaloader.login(username, password, proxies)
                 except TwoFactorAuthRequiredException:
                     while True:
                         try:
@@ -121,7 +135,8 @@ def _main(instaloader: Instaloader, targetlist: List[str],
         instaloader.context.log("Logged in as %s." % username)
     # since 4.2.9 login is required for geotags
     if instaloader.download_geotags and not instaloader.context.is_logged_in:
-        instaloader.context.error("Warning: Use --login to download geotags of posts.")
+        instaloader.context.error(
+            "Warning: Use --login to download geotags of posts.")
     # Try block for KeyboardInterrupt (save session on ^C)
     profiles = set()
     anonymous_retry_profiles = set()
@@ -130,19 +145,26 @@ def _main(instaloader: Instaloader, targetlist: List[str],
         for target in targetlist:
             if (target.endswith('.json') or target.endswith('.json.xz')) and os.path.isfile(target):
                 with instaloader.context.error_catcher(target):
-                    structure = load_structure_from_file(instaloader.context, target)
+                    structure = load_structure_from_file(
+                        instaloader.context, target)
                     if isinstance(structure, Post):
                         if post_filter is not None and not post_filter(structure):
-                            instaloader.context.log("<{} ({}) skipped>".format(structure, target), flush=True)
+                            instaloader.context.log("<{} ({}) skipped>".format(
+                                structure, target), flush=True)
                             continue
-                        instaloader.context.log("Downloading {} ({})".format(structure, target))
-                        instaloader.download_post(structure, os.path.dirname(target))
+                        instaloader.context.log(
+                            "Downloading {} ({})".format(structure, target))
+                        instaloader.download_post(
+                            structure, os.path.dirname(target))
                     elif isinstance(structure, StoryItem):
                         if storyitem_filter is not None and not storyitem_filter(structure):
-                            instaloader.context.log("<{} ({}) skipped>".format(structure, target), flush=True)
+                            instaloader.context.log("<{} ({}) skipped>".format(
+                                structure, target), flush=True)
                             continue
-                        instaloader.context.log("Attempting to download {} ({})".format(structure, target))
-                        instaloader.download_storyitem(structure, os.path.dirname(target))
+                        instaloader.context.log(
+                            "Attempting to download {} ({})".format(structure, target))
+                        instaloader.download_storyitem(
+                            structure, os.path.dirname(target))
                     elif isinstance(structure, Profile):
                         raise InvalidArgumentException("Profile JSON are ignored. Pass \"{}\" to download that profile"
                                                        .format(structure.username))
@@ -154,8 +176,10 @@ def _main(instaloader: Instaloader, targetlist: List[str],
             target = target.rstrip('/')
             with instaloader.context.error_catcher(target):
                 if re.match(r"^@[A-Za-z0-9._]+$", target):
-                    instaloader.context.log("Retrieving followees of %s..." % target[1:])
-                    profile = Profile.from_username(instaloader.context, target[1:])
+                    instaloader.context.log(
+                        "Retrieving followees of %s..." % target[1:])
+                    profile = Profile.from_username(
+                        instaloader.context, target[1:])
                     for followee in profile.get_followees():
                         instaloader.save_profile_id(followee)
                         profiles.add(followee)
@@ -164,7 +188,8 @@ def _main(instaloader: Instaloader, targetlist: List[str],
                                                  post_filter=post_filter,
                                                  profile_pic=download_profile_pic, posts=download_posts)
                 elif re.match(r"^-[A-Za-z0-9-_]+$", target):
-                    instaloader.download_post(Post.from_shortcode(instaloader.context, target[1:]), target)
+                    instaloader.download_post(Post.from_shortcode(
+                        instaloader.context, target[1:]), target)
                 elif re.match(r"^%[0-9]+$", target):
                     instaloader.download_location(location=target[1:], max_count=max_count, fast_update=fast_update,
                                                   post_filter=post_filter)
@@ -172,20 +197,23 @@ def _main(instaloader: Instaloader, targetlist: List[str],
                     instaloader.download_feed_posts(fast_update=fast_update, max_count=max_count,
                                                     post_filter=post_filter)
                 elif target == ":stories":
-                    instaloader.download_stories(fast_update=fast_update, storyitem_filter=storyitem_filter)
+                    instaloader.download_stories(
+                        fast_update=fast_update, storyitem_filter=storyitem_filter)
                 elif target == ":saved":
                     instaloader.download_saved_posts(fast_update=fast_update, max_count=max_count,
                                                      post_filter=post_filter)
                 elif re.match(r"^[A-Za-z0-9._]+$", target):
                     try:
-                        profile = instaloader.check_profile_id(target, latest_stamps)
+                        profile = instaloader.check_profile_id(
+                            target, latest_stamps)
                         if instaloader.context.is_logged_in and profile.has_blocked_viewer:
                             if download_profile_pic or ((download_posts or download_tagged or download_igtv)
                                                         and not profile.is_private):
                                 raise ProfileNotExistsException("{} blocked you; But we download her anonymously."
                                                                 .format(target))
                             else:
-                                instaloader.context.error("{} blocked you.".format(target))
+                                instaloader.context.error(
+                                    "{} blocked you.".format(target))
                         else:
                             profiles.add(profile)
                     except ProfileNotExistsException as err:
@@ -194,7 +222,8 @@ def _main(instaloader: Instaloader, targetlist: List[str],
                         if instaloader.context.is_logged_in and (download_profile_pic or download_posts or
                                                                  download_tagged or download_igtv):
                             instaloader.context.log(err)
-                            instaloader.context.log("Trying again anonymously, helps in case you are just blocked.")
+                            instaloader.context.log(
+                                "Trying again anonymously, helps in case you are just blocked.")
                             with instaloader.anonymous_copy() as anonymous_loader:
                                 with instaloader.context.error_catcher():
                                     anonymous_retry_profiles.add(anonymous_loader.check_profile_id(target,
@@ -209,13 +238,15 @@ def _main(instaloader: Instaloader, targetlist: List[str],
                         '%': 'location',
                         '-': 'shortcode',
                     }.get(target[0], 'username')
-                    raise ProfileNotExistsException('Invalid {} {}'.format(target_type, target))
+                    raise ProfileNotExistsException(
+                        'Invalid {} {}'.format(target_type, target))
         if len(profiles) > 1:
             instaloader.context.log("Downloading {} profiles: {}".format(len(profiles),
                                                                          ' '.join([p.username for p in profiles])))
         if instaloader.context.iphone_support and profiles and (download_profile_pic or download_posts) and \
            not instaloader.context.is_logged_in:
-            instaloader.context.log("Hint: Use --login to download higher-quality versions of pictures.")
+            instaloader.context.log(
+                "Hint: Use --login to download higher-quality versions of pictures.")
         instaloader.download_profiles(profiles,
                                       download_profile_pic, download_posts, download_tagged, download_igtv,
                                       download_highlights, download_stories,
@@ -239,7 +270,8 @@ def _main(instaloader: Instaloader, targetlist: List[str],
     if not targetlist:
         if instaloader.context.is_logged_in:
             # Instaloader did at least save a session file
-            instaloader.context.log("No targets were specified, thus nothing has been downloaded.")
+            instaloader.context.log(
+                "No targets were specified, thus nothing has been downloaded.")
         else:
             # Instaloader did not do anything
             instaloader.context.log("usage:" + usage_string())
@@ -260,7 +292,8 @@ def main():
     g_targets.add_argument('_at_profile', nargs='*', metavar="@profile",
                            help="Download all followees of profile. Requires --login. "
                                 "Consider using :feed rather than @yourself.")
-    g_targets.add_argument('_hashtag', nargs='*', metavar='"#hashtag"', help="Download #hashtag.")
+    g_targets.add_argument('_hashtag', nargs='*',
+                           metavar='"#hashtag"', help="Download #hashtag.")
     g_targets.add_argument('_location', nargs='*', metavar='%location_id',
                            help="Download %%location_id. Requires --login.")
     g_targets.add_argument('_feed', nargs='*', metavar=":feed",
@@ -388,7 +421,8 @@ def main():
     g_how.add_argument('--no-resume', action='store_true',
                        help='Do not resume a previously-aborted download iteration, and do not save such information '
                             'when interrupted.')
-    g_how.add_argument('--use-aged-resume-files', action='store_true', help=SUPPRESS)
+    g_how.add_argument('--use-aged-resume-files',
+                       action='store_true', help=SUPPRESS)
     g_how.add_argument('--user-agent',
                        help='User Agent to use for HTTP requests. Defaults to \'{}\'.'.format(default_user_agent()))
     g_how.add_argument('-S', '--no-sleep', action='store_true', help=SUPPRESS)
@@ -403,14 +437,15 @@ def main():
                        help='Comma-separated list of HTTP status codes that cause Instaloader to abort, bypassing all '
                             'retry logic.')
     g_how.add_argument('--no-iphone', action='store_true',
-                        help='Do not attempt to download iPhone version of images and videos.')
+                       help='Do not attempt to download iPhone version of images and videos.')
 
     g_misc = parser.add_argument_group('Miscellaneous Options')
     g_misc.add_argument('-q', '--quiet', action='store_true',
                         help='Disable user interaction, i.e. do not print messages (except errors) and fail '
                              'if login credentials are needed but not given. This makes Instaloader suitable as a '
                              'cron job.')
-    g_misc.add_argument('-h', '--help', action='help', help='Show this help message and exit.')
+    g_misc.add_argument('-h', '--help', action='help',
+                        help='Show this help message and exit.')
     g_misc.add_argument('--version', action='version', help='Show version number and exit.',
                         version=__version__)
 
@@ -426,8 +461,10 @@ def main():
             raise SystemExit(":feed-all and :feed-liked were removed. Use :feed as target and "
                              "eventually --post-filter=viewer_has_liked.")
 
-        post_metadata_txt_pattern = '\n'.join(args.post_metadata_txt) if args.post_metadata_txt else None
-        storyitem_metadata_txt_pattern = '\n'.join(args.storyitem_metadata_txt) if args.storyitem_metadata_txt else None
+        post_metadata_txt_pattern = '\n'.join(
+            args.post_metadata_txt) if args.post_metadata_txt else None
+        storyitem_metadata_txt_pattern = '\n'.join(
+            args.storyitem_metadata_txt) if args.storyitem_metadata_txt else None
 
         if args.no_captions:
             if not (post_metadata_txt_pattern or storyitem_metadata_txt_pattern):
@@ -438,15 +475,19 @@ def main():
                                  "That contradicts.")
 
         if args.no_resume and args.resume_prefix:
-            raise SystemExit("--no-resume and --resume-prefix given; That contradicts.")
-        resume_prefix = (args.resume_prefix if args.resume_prefix else 'iterator') if not args.no_resume else None
+            raise SystemExit(
+                "--no-resume and --resume-prefix given; That contradicts.")
+        resume_prefix = (
+            args.resume_prefix if args.resume_prefix else 'iterator') if not args.no_resume else None
 
         if args.no_pictures and args.fast_update:
-            raise SystemExit('--no-pictures and --fast-update cannot be used together.')
+            raise SystemExit(
+                '--no-pictures and --fast-update cannot be used together.')
 
         # Determine what to download
         download_profile_pic = not args.no_profile_pic or args.profile_pic_only
-        download_posts = not (args.no_posts or args.stories_only or args.profile_pic_only)
+        download_posts = not (
+            args.no_posts or args.stories_only or args.profile_pic_only)
         download_stories = args.stories or args.stories_only
 
         loader = Instaloader(sleep=not args.no_sleep, quiet=args.quiet, user_agent=args.user_agent,
