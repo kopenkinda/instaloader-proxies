@@ -116,11 +116,17 @@ def _main(instaloader: Instaloader, targetlist: List[str],
             if password is not None:
                 try:
                     # PROXIESSTUFF
+                    httpsProxy = os.environ.get('HTTPS_PROXY_SERVER')
+                    if httpsProxy is None:
+                        raise Exception('No proxy set')
+                    parts = httpsProxy.split('@')
+                    authParts = parts[0].split(':')
+                    auth = (authParts[0], authParts[1])
+                    serverUrl = "https://" + parts[1]
                     proxies = {
-                        'http': os.environ.get('HTTP_PROXY_SERVER'),
-                        'https': os.environ.get('HTTPS_PROXY_SERVER'),
+                        'https': serverUrl,
                     }
-                    instaloader.login(username, password, proxies)
+                    instaloader.login(username, password, proxies, auth)
                 except TwoFactorAuthRequiredException:
                     while True:
                         try:
